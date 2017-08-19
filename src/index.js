@@ -1,6 +1,8 @@
 import express from 'express'
 import bodyParser from 'body-parser'
 import WebSocket from 'ws'
+import axios from 'axios'
+import { minify } from 'html-minifier'
 import config from './config'
 
 // create http server
@@ -29,17 +31,38 @@ http.all('*', (req, res, next) => {
 	next()
 })
 
-// resend received data to websocket clients
+// send new list html to users
 http.post('/', (req, res) => {
 
-	// parse received data
-	const data = JSON.stringify(req.body || {})
+	const action = req.body.action
 
-	// send data to websocket clients
-	ws.clients.forEach(client => {
-		client.send(data)
+	axios.get(config.forumUrl).then(forumResposne => {
+		return forumResposne.data
+	}).then(html => {
+
+		// send only required data
+		// cut the questions
+		const startIndex = html.indexOf('<div class="qa-q-list ') + 47
+		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
+		html = html.slice(startIndex, endIndex)
+
+		// minify html
+		html = minify(html, {
+			removeComments: true,
+			collapseWhitespace: true
+		})
+
+		// send new HTML to websocket clients
+		ws.clients.forEach(client => {
+			const data = JSON.stringify({ action, html })
+			client.send(data)
+		})
+
+		// send response to forum server
+		res.sendStatus(200)
+
+	}).catch(err => {
+		console.error(err)
 	})
 
-	// http response: OK
-	res.sendStatus(200)
 })

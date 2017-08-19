@@ -1,15 +1,16 @@
 # http-websocket-server
-Serwer umożliwiający asynchroniczne wysyłanie danych do użytkowników forum.
+Serwer umożliwiający asynchroniczne wysyłanie danych do użytkowników.
 ```
-                HTTP POST
-Serwer forum     -----→     Serwer HTTP-WebSocket
+       (1) update
+User  --------------→  Forum
 
- ↑                          |||
- | HTTP update              ||| socket message
- |                          ↓↓↓
-
-Użytkownik                 Użytkownicy
+                        | ↑| (2) POST - Hej, jest update!
+                        | ||
+                        ↓ |↓ (3) GET - Spoko, wyrenderuj mi HTML
+       (4) nowy HTML
+Users ←--------------  WS-HTTP serwer
 ```
+Z koden naszego forum to chyba jedyne sensowne rozwiązanie.
 
 ## Instalacja
 ```

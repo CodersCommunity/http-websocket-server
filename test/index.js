@@ -2,6 +2,7 @@ import chai from 'chai'
 import chaiHttp from 'chai-http'
 import config from '../src/config'
 import WebSocket from 'ws'
+import { minify } from 'html-minifier'
 import '../dist/index.js'
 
 chai.use(chaiHttp)
@@ -50,23 +51,27 @@ describe('HTTP Server', () => {
 })
 
 describe('App', () => {
-	it('should resend received data to websocket clients', done => {
+	it('should send valid HTML to websocket clients', done => {
 		const wsClient = new WebSocket(wsURL)
 
-		const tmpObj = {
-			lorem: 'ipsum',
-			dolor: 'set'
-		}
-
 		wsClient.on('message', data => {
-			data = JSON.parse(data)
-			expect(data).to.be.deep.equal(tmpObj)
+
+			const { type, html } = JSON.parse(data)
+
+			expect(() => {
+				try {
+					minify(html)
+				} catch(err) {
+					throw new Error('Invalid HTML')
+				}
+			}).to.not.throw(Error)
+
 			done()
 		})
 
 		chai.request(httpURL).post('/')
 		.set({ token })
-		.send(tmpObj)
+		.send()
 		.end((err, res) => {})
 	})
 })
