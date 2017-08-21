@@ -34,14 +34,14 @@ http.all('*', (req, res, next) => {
 // send new list html to users
 http.post('/', (req, res) => {
 
-	const action = req.body.action
+	// send response to forum server
+	res.sendStatus(200)
 
 	axios.get(config.forumUrl).then(forumResposne => {
 		return forumResposne.data
 	}).then(html => {
 
 		// send only required data
-		// cut the questions
 		const startIndex = html.indexOf('<div class="qa-q-list ') + 47
 		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
 		html = html.slice(startIndex, endIndex)
@@ -52,14 +52,14 @@ http.post('/', (req, res) => {
 			collapseWhitespace: true
 		})
 
+		// get action type e.g. 'add-question'
+		const action = req.body.action
+
 		// send new HTML to websocket clients
 		ws.clients.forEach(client => {
 			const data = JSON.stringify({ action, html })
 			client.send(data)
 		})
-
-		// send response to forum server
-		res.sendStatus(200)
 
 	}).catch(err => {
 		console.error(err)
