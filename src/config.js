@@ -1,9 +1,11 @@
+import fs from 'fs'
 export default {
 	token: 'secretKey',
 	host: 'localhost',
 	forumUrl: 'http://fpi.pl/',
-	port: {
-		ws: 3001,
-		http: 3000
+	port: 3000,
+	ssl: {
+		key: fs.readFileSync('sslcert/key.pem', 'utf8'),
+		cert: fs.readFileSync('sslcert/cert.pem', 'utf8')
 	}
 }

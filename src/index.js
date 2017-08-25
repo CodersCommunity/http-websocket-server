@@ -5,16 +5,16 @@ import axios from 'axios'
 import { minify } from 'html-minifier'
 import config from './config'
 
-// create http server
-const http = express()
-http.use(bodyParser.json())
-http.listen(config.port.http)
+// create https server
+const app = express()
+const server = https.createServer(config.ssl, app);
+server.listen(config.port)
 
 // create websocket server
-const ws = new WebSocket.Server({ port: config.port.ws })
+const ws = new WebSocket.Server({ server })
 
 // check request
-http.all('*', (req, res, next) => {
+app.all('*', (req, res, next) => {
 
 	// check authorization
 	if (req.headers.token !== config.token) {
@@ -32,7 +32,7 @@ http.all('*', (req, res, next) => {
 })
 
 // send new list html to users
-http.post('/', (req, res) => {
+app.post('/', (req, res) => {
 
 	// send response to forum server
 	res.sendStatus(200)

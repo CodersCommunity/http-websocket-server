@@ -7,8 +7,8 @@ import '../dist/index.js'
 
 chai.use(chaiHttp)
 const expect = chai.expect
-const httpURL = `http://${ config.host }:${ config.port.http }`
-const wsURL = `ws://${ config.host }:${ config.port.ws }`
+const httpURL = `https://${ config.host }:${ config.port.http }`
+const wsURL = `wss://${ config.host }:${ config.port.ws }`
 const token = config.token
 
 describe('HTTP Server', () => {
