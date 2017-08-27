@@ -8,6 +8,7 @@ import config from './config'
 
 // create https server
 const app = express()
+app.use(bodyParser.json())
 const server = https.createServer(config.ssl, app);
 server.listen(config.port)
 
@@ -43,7 +44,7 @@ app.post('/', (req, res) => {
 	}).then(html => {
 
 		// send only required data
-		const startIndex = html.indexOf('<div class="qa-q-list ') + 47
+		const startIndex = html.indexOf('<div class="qa-q-list') + 45
 		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
 		html = html.slice(startIndex, endIndex)
 
@@ -56,13 +57,16 @@ app.post('/', (req, res) => {
 		// get action type e.g. 'add-question'
 		const action = req.body.action
 
-		// send new HTML to websocket clients
-		ws.clients.forEach(client => {
-			const data = JSON.stringify({ action, html })
-			client.send(data)
-		})
+        // check is HTML a valid question list
+        if (html.startsWith(`<div class="qa-q-list-item"`)) {
+            // send new HTML to websocket clients
+            ws.clients.forEach(client => {
+                const data = JSON.stringify({ action, html })
+                client.send(data)
+            })
+        }
 
-	}).catch(err => {
+    }).catch(err => {
 		console.error(err)
 	})
 
