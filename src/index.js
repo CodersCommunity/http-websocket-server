@@ -47,7 +47,7 @@ app.post('/', (req, res) => {
 	}).then(html => {
 
 		// send only required data
-		const startIndex = html.indexOf('<div class="qa-q-list ') + 45
+		const startIndex = html.indexOf('<div class="qa-q-list') + 45
 		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
 		html = html.slice(startIndex, endIndex)
 
@@ -60,23 +60,23 @@ app.post('/', (req, res) => {
 		// get action type e.g. 'add-question'
 		const action = req.body.action
 
-        // check is HTML a valid question list
-        if (html.startsWith(`<div class="qa-q-list-item "`)) {
-            // send new HTML to websocket clients
-            ws.clients.forEach(client => {
-                const data = JSON.stringify({ action, html })
-                client.send(data)
-            })
-        } else {
+		// check is HTML a valid question list
+		if (html.startsWith(`<div class="qa-q-list-item`)) {
+			// send new HTML to websocket clients
+			ws.clients.forEach(client => {
+			const data = JSON.stringify({ action, html })
+				client.send(data)
+			})
+		} else {
 			if (!mailSend) {
-                mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
+				mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
 				mailSend = true
-            }
+			}
 		}
 
-    }).catch(err => {
+	}).catch(err => {
 		console.error(err)
-        mailer.sendMail(`<p>Błąd pobrania danych z forum!</p><p>${ err }</p>`)
+		mailer.sendMail(`<p>Błąd pobrania danych z forum!</p><p>${ err }</p>`)
 	})
 
 })
