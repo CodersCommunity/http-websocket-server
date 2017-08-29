@@ -5,11 +5,15 @@ import WebSocket from 'ws'
 import axios from 'axios'
 import { minify } from 'html-minifier'
 import config from './config'
+import mailer from './mailer'
+import escape from 'escape-html'
 
 // create https server
 const app = express()
+app.use(bodyParser.json())
 const server = https.createServer(config.ssl, app);
 server.listen(config.port)
+let mailSend = false
 
 // create websocket server
 const ws = new WebSocket.Server({ server })
@@ -43,7 +47,7 @@ app.post('/', (req, res) => {
 	}).then(html => {
 
 		// send only required data
-		const startIndex = html.indexOf('<div class="qa-q-list ') + 47
+		const startIndex = html.indexOf('<div class="qa-q-list') + 45
 		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
 		html = html.slice(startIndex, endIndex)
 
@@ -56,14 +60,23 @@ app.post('/', (req, res) => {
 		// get action type e.g. 'add-question'
 		const action = req.body.action
 
-		// send new HTML to websocket clients
-		ws.clients.forEach(client => {
+		// check is HTML a valid question list
+		if (html.startsWith(`<div class="qa-q-list-item`)) {
+			// send new HTML to websocket clients
+			ws.clients.forEach(client => {
 			const data = JSON.stringify({ action, html })
-			client.send(data)
-		})
+				client.send(data)
+			})
+		} else {
+			if (!mailSend) {
+				mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
+				mailSend = true
+			}
+		}
 
 	}).catch(err => {
 		console.error(err)
+		mailer.sendMail(`<p>Błąd pobrania danych z forum!</p><p>${ err }</p>`)
 	})
 
 })
