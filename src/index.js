@@ -1,4 +1,4 @@
-import https from 'https'
+import http from 'http'
 import express from 'express'
 import bodyParser from 'body-parser'
 import WebSocket from 'ws'
@@ -8,10 +8,10 @@ import config from './config'
 import mailer from './mailer'
 import escape from 'escape-html'
 
-// create https server
+// create http server
 const app = express()
 app.use(bodyParser.json())
-const server = https.createServer(config.ssl, app);
+const server = http.createServer(app);
 server.listen(config.port)
 let mailSend = false
 
@@ -53,26 +53,26 @@ app.post('/', (req, res) => {
 
 		// minify html
 		html = minify(html, {
-			removeComments: true,
-			collapseWhitespace: true
-		})
+		removeComments: true,
+		collapseWhitespace: true
+	})
 
-		// get action type e.g. 'add-question'
-		const action = req.body.action
+	// get action type e.g. 'add-question'
+	const action = req.body.action
 
-		// check is HTML a valid question list
-		if (html.startsWith(`<div class="qa-q-list-item`)) {
-			// send new HTML to websocket clients
-			ws.clients.forEach(client => {
+	// check is HTML a valid question list
+	if (html.startsWith(`<div class="qa-q-list-item`)) {
+		// send new HTML to websocket clients
+		ws.clients.forEach(client => {
 			const data = JSON.stringify({ action, html })
-				client.send(data)
-			})
-		} else {
-			if (!mailSend) {
-				mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
-				mailSend = true
-			}
+			client.send(data)
+		})
+	} else {
+		if (!mailSend) {
+			mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
+			mailSend = true
 		}
+	}
 
 	}).catch(err => {
 		console.error(err)
@@ -80,3 +80,4 @@ app.post('/', (req, res) => {
 	})
 
 })
+
