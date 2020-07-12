@@ -96,8 +96,7 @@ describe('App', () => {
 	afterEach(afterEachCb);
 
 	it('should send valid HTML to websocket clients', done => {
-		const wsc = getWsClient();
-		const onMessage = data => {
+		getWsClient().on('message', data => {
 			const { minifiedQuestionList } = JSON.parse(data)
 
 			expect(() => {
@@ -109,10 +108,9 @@ describe('App', () => {
 			}).to.not.throw(Error)
 
 			console.log('done???');
-			wsc.off('message', onMessage);
+			// wsc.off('message', onMessage);
 			done()
-		};
-		wsc.on('message', onMessage)
+		})
 
 		chai.request(httpURL).post('/')
 		.set({ token })

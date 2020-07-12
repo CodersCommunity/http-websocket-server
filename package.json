@@ -8,9 +8,9 @@
     "debug": "node --inspect-brk dist/index.js",
     "build": "babel src -d dist",
     "serve": "node dist/index.js",
-    "test": "mocha --compilers js:babel-register || exit 0"
+    "test": "mocha --require babel-register --exit --timeout 5000"
   },
-  "author": "Adrian Wieprzkowicz",
+  "author": "Adrian Wieprzkowicz & JSHolic",
   "license": "MIT",
   "dependencies": {
     "axios": "^0.19.2",
@@ -20,15 +20,15 @@
     "html-minifier": "^3.5.3",
     "jsdom": "^16.3.0",
     "nodemailer": "^4.0.1",
-    "ws": "^3.3.3"
+    "ws": "^7.3.1"
   },
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-preset-env": "^1.6.0",
     "babel-register": "^6.24.1",
-    "chai": "^4.1.1",
-    "chai-http": "^3.0.0",
-    "mocha": "^3.5.0",
+    "chai": "^4.2.0",
+    "chai-http": "^4.3.0",
+    "mocha": "^8.0.1",
     "nodemon": "^1.11.0"
   }
 }
