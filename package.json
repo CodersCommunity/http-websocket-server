@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.js --exec babel-node",
+    "debug": "node --inspect-brk dist/index.js",
     "build": "babel src -d dist",
     "serve": "node dist/index.js",
     "test": "mocha --compilers js:babel-register || exit 0"
@@ -17,6 +18,7 @@
     "escape-html": "^1.0.3",
     "express": "^4.17.1",
     "html-minifier": "^3.5.3",
+    "jsdom": "^16.3.0",
     "nodemailer": "^4.0.1",
     "ws": "^3.3.3"
   },

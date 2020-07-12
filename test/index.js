@@ -7,11 +7,51 @@ import '../dist/index.js'
 
 chai.use(chaiHttp)
 const expect = chai.expect
-const httpURL = `https://${ config.host }:${ config.port.http }`
-const wsURL = `wss://${ config.host }:${ config.port.ws }`
+const httpURL = `http://${ config.host }:${ config.port.http }`
+const wsURL = `ws://${ config.host }:${ config.port.ws }`
 const token = config.token
 
+const { beforeEachCb, afterEachCb, getWsClient } = (() => {
+	let wsClient = null;
+
+	return { beforeEachCb, afterEachCb, getWsClient };
+
+	function beforeEachCb(done) {
+		wsClient = new WebSocket(wsURL);
+
+		wsClient.on('error', (e) => console.log('errored! ', e));
+		wsClient.on('open', () => {
+			console.log('opened...');
+			done();
+		});
+	}
+
+	function afterEachCb(done) {
+		console.log('closing...');
+
+		wsClient.on('close', () => {
+			console.log('closed!');
+			wsClient = null;
+			done();
+		});
+		// wsClient.close();
+		wsClient.terminate();
+
+		// wsClient.on('message', () => {
+		// 	console.log('message...before close');
+		// });
+	}
+
+	function getWsClient() {
+		return wsClient;
+	}
+})();
+
 describe('HTTP Server', () => {
+	beforeEach(beforeEachCb);
+
+	afterEach(afterEachCb);
+
 	it('should return 200 on correct request', done => {
 		chai.request(httpURL).post('/')
 		.set({ token })
@@ -51,23 +91,28 @@ describe('HTTP Server', () => {
 })
 
 describe('App', () => {
+	beforeEach(beforeEachCb);
+
+	afterEach(afterEachCb);
+
 	it('should send valid HTML to websocket clients', done => {
-		const wsClient = new WebSocket(wsURL)
-
-		wsClient.on('message', data => {
-
-			const { type, html } = JSON.parse(data)
+		const wsc = getWsClient();
+		const onMessage = data => {
+			const { minifiedQuestionList } = JSON.parse(data)
 
 			expect(() => {
 				try {
-					minify(html)
+					minify(minifiedQuestionList)
 				} catch(err) {
 					throw new Error('Invalid HTML')
 				}
 			}).to.not.throw(Error)
 
+			console.log('done???');
+			wsc.off('message', onMessage);
 			done()
-		})
+		};
+		wsc.on('message', onMessage)
 
 		chai.request(httpURL).post('/')
 		.set({ token })

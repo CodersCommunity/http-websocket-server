@@ -2,7 +2,10 @@ export default {
 		token: 'secretKey',
 		host: 'localhost',
 		forumUrl: 'https://forum.pasja-informatyki.pl/',
-		port: 3000,
+		port: {
+			http: 3000/*80*/,
+			ws: 3000
+		},
 		mailer: {
 			host: '',
 			port: 587,
