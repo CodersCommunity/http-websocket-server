@@ -3,9 +3,9 @@ import config from './config';
 
 export default {
   sendMail: function (message) {
-    let transporter = nodemailer.createTransport(config.mailer);
+    const transporter = nodemailer.createTransport(config.mailer);
 
-    let mailOptions = {
+    const mailOptions = {
       from: config.mailer.auth.user,
       to: config.emailTo.toString(),
       subject: '!!! Błąd działania WebSocketu Forum Pasja Informatyki!',

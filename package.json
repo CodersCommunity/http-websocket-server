@@ -11,7 +11,7 @@
 
     "prebuild": "npm run prettier",
     "build": "babel src -d dist",
-    "serve": "node dist/index.js",
+    "serve": "node dist/index.js prodURL",
 
     "test": "mocha --require babel-register --exit --timeout 5000"
   },

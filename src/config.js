@@ -1,9 +1,12 @@
+const prodUrlArg = process.argv[2];
+const useProdURL = prodUrlArg === 'prodURL';
+
 export default {
   token: 'secretKey',
   host: 'localhost',
-  forumUrl: 'http://localhost/activity', // 'https://forum.pasja-informatyki.pl/',
+  forumUrl: useProdURL ? 'https://forum.pasja-informatyki.pl/' : 'http://localhost/',
   port: {
-    http: 3000 /*80*/,
+    http: 3000,
     ws: 3000,
   },
   mailer: {
