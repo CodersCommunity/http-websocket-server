@@ -2,33 +2,30 @@ import http from 'http';
 import express from 'express';
 import bodyParser from 'body-parser';
 import WebSocket from 'ws';
-import axios from 'axios';
-import { minify } from 'html-minifier';
 import config from './config';
-import { JSDOM } from 'jsdom';
-// import mailer from './mailer'
-import escape from 'escape-html';
+import mailer from './mailer';
 
 const app = express();
 app.use(bodyParser.json());
 const server = http.createServer(app);
 server.listen(config.port.http);
 
-const ERROR_CODES = Object.freeze({
+const HTTP_ERROR_CODES = Object.freeze({
   FORBIDDEN: 403,
   METHOD_NOT_ALLOWED: 405,
+  WS_CLOSE_ERROR_CODE: 4000,
 });
-
-// TODO: separation for different forum pages, like: '/', '/activity' and certain questions
-const GROUPS = {};
+const GROUP_REGEXPS = Object.freeze({
+  main: /^$|\/$/,
+  activity: /^(\/?)activity/,
+});
 
 let mailSend = false;
 
-const ws = new WebSocket.Server({ server });
-debugger;
-ws.on('error', onError);
-ws.on('connection', onConnection);
-ws.on('close', onClose);
+const wss = new WebSocket.Server({ server });
+wss.on('error', onWSSError);
+wss.on('connection', onWSSConnection);
+wss.on('close', onWSSClose);
 
 // check request
 app.all('*', onAll);
@@ -36,104 +33,105 @@ app.all('*', onAll);
 // send new list html to users
 app.post('/', onPost);
 
-function onError(error) {
-  console.log('Socket error: ', error);
-  // TODO: mail PM because socket server encountered an error
+function onWSSError(error) {
+  console.log('WebSocket server error: ', error);
+
+  if (!mailSend) {
+    mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
+    mailSend = true;
+  }
 }
 
-function onConnection(socket) {
-  console.log('connected');
-
-  ['close', 'error'].forEach((eventType) => {
-    socket.on(eventType, (event) => {
-      console.log('socket eventType: ', eventType, ' /event: ', event);
-      if (eventType === 'error' && !event.errno) {
-        throw event;
-      }
-    });
-  });
+function onWSSConnection(ws) {
+  ws.on('error', onWSError);
+  ws.on('message', onWSMessage);
+  // ws.on('close', () => {});
 }
 
-function onClose() {
-  console.log('closed');
+function onWSSClose(event) {
+  console.log('WebSocket server closed: ', event);
+}
+
+function onWSMessage(event) {
+  const parsedEvent = parseWSMessage(this, event);
+
+  if (!parsedEvent) {
+    return;
+  }
+
+  assignWSClientToGroup(this, parsedEvent.pathname);
+}
+
+function onWSError(event) {
+  console.error('ws error event: ', event);
+
+  if (!event.errno) {
+    throw event;
+  }
 }
 
 function onAll(req, res, next) {
   // check authorization
   if (req.headers.token !== config.token) {
-    res.sendStatus(ERROR_CODES.FORBIDDEN);
+    res.sendStatus(HTTP_ERROR_CODES.FORBIDDEN);
     return;
   }
 
-  // check method
   if (req.method !== 'POST') {
-    res.sendStatus(ERROR_CODES.METHOD_NOT_ALLOWED);
+    res.sendStatus(HTTP_ERROR_CODES.METHOD_NOT_ALLOWED);
     return;
   }
 
   next();
 }
 
-function onPost(req, res) {
-  // console.log('req.body: ', req.body);
-  debugger;
+function parseWSMessage(ws, event) {
+  let parsedEvent = {};
 
-  // send response to forum server
+  try {
+    if (!event) {
+      throw Error('ws empty message event');
+    }
+
+    parsedEvent = JSON.parse(event);
+  } catch (exception) {
+    console.error('ws invalid JSON message: ', event, ' threw exception: ', exception);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Message is not valid JSON!');
+
+    return null;
+  }
+
+  if (!parsedEvent.pathname) {
+    console.error('ws empty pathname: ', parsedEvent.pathname);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Empty pathname!');
+
+    return null;
+  }
+
+  return parsedEvent;
+}
+
+function assignWSClientToGroup(ws, pathname) {
+  const pathName = pathname.replace(/\//g, '');
+  const groupName = Object.keys(GROUP_REGEXPS).find((groupName) => GROUP_REGEXPS[groupName].test(pathName));
+
+  if (!groupName) {
+    console.error('ws unexpected groupName: ', groupName, ' from pathName: ', pathName);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
+  }
+
+  ws._GROUP_NAME = groupName;
+}
+
+function onPost(req, res) {
   res.sendStatus(200);
 
-  axios
-    .get(config.forumUrl)
-    .then((forumResponse) => {
-      console.log('forumResponse: ', forumResponse.data && forumResponse.data.slice(0, 100));
-      return forumResponse.data;
-    })
-    .then((html) => {
-      // send only required data
-      // const startIndex = html.indexOf('<div class="qa-q-list') + 45
-      // const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
-      // html = html.slice(startIndex, endIndex)
+  const { action } = req.body;
+  const groupName = action === 'add-post' ? 'main' : 'activity';
 
-      // minify html
-      // html = minify(html, {
-      // 	removeComments: true,
-      // 	collapseWhitespace: true
-      // })
-
-      debugger;
-
-      const { document } = new JSDOM(html).window;
-      const questionList = document.querySelector('.qa-q-list');
-      console.log('questionList: ', questionList);
-
-      // get action type e.g. 'add-question'
-      const action = req.body.action;
-
-      // check is HTML a valid question list
-      if (questionList && questionList.children.length /*html.startsWith(`<div class="qa-q-list-item`)*/) {
-        console.log('matched html -> send msg to client: ', ws.clients.size);
-
-        // send new HTML to websocket clients
-        ws.clients.forEach((client) => {
-          debugger;
-
-          const minifiedQuestionList = minify(questionList.innerHTML, {
-            removeComments: true,
-            collapseWhitespace: true,
-          });
-          const data = JSON.stringify({ action, minifiedQuestionList });
-
-          client.send(data);
-        });
-      } else {
-        console.log('not matched html...');
-        // if (!mailSend) {
-        // 	mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
-        // 	mailSend = true
-        // }
-      }
-    })
-    .catch((err) => {
-      console.error('err: ', err.toString(), ' /err keys: ', Object.keys(err));
-      // mailer.sendMail(`<p>Błąd pobrania danych z forum!</p><p>${ err }</p>`)
-    });
+  for (const wsClient of wss.clients) {
+    if (wsClient._GROUP_NAME === groupName || wsClient._GROUP_NAME === 'activity') {
+      wsClient.send(JSON.stringify({ action }));
+    }
+  }
 }
