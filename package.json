@@ -11,7 +11,7 @@
 
     "prebuild": "npm run prettier",
     "build": "babel src -d dist",
-    "serve": "node dist/index.js prodURL",
+    "serve": "node dist/index.js",
 
     "test": "mocha --require babel-register --exit --timeout 5000"
   },
@@ -20,6 +20,7 @@
   "dependencies": {
     "axios": "^0.19.2",
     "body-parser": "^1.19.0",
+    "dotenv": "^8.2.0",
     "escape-html": "^1.0.3",
     "express": "^4.17.1",
     "html-minifier": "^3.5.3",

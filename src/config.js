@@ -1,10 +1,10 @@
-const prodUrlArg = process.argv[2];
-const useProdURL = prodUrlArg === 'prodURL';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export default {
   token: 'secretKey',
   host: 'localhost',
-  forumUrl: useProdURL ? 'https://forum.pasja-informatyki.pl/' : 'http://localhost/',
+  forumUrl: process.env.FORUM_URL || 'http://localhost/',
   port: {
     http: 3000,
     ws: 3000,
