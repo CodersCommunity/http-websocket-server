@@ -12,7 +12,7 @@
   "author": "Adrian Wieprzkowicz",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.16.2",
+    "axios": "^0.21.1",
     "body-parser": "^1.17.2",
     "escape-html": "^1.0.3",
     "express": "^4.15.4",
