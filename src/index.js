@@ -8,7 +8,7 @@ import mailer from './mailer';
 const app = express();
 app.use(bodyParser.json());
 const server = http.createServer(app);
-server.listen(config.port.http);
+server.listen(config.port.http, () => console.log(`Server is listening on port ${config.port.http}`));
 
 const HTTP_ERROR_CODES = Object.freeze({
   FORBIDDEN: 403,
@@ -20,7 +20,7 @@ const GROUP_REGEXPS = Object.freeze({
   activity: /^(\/?)activity/,
 });
 
-let mailSend = false;
+let mailSent = false;
 
 const wss = new WebSocket.Server({ server });
 wss.on('error', onWSSError);
@@ -36,16 +36,15 @@ app.post('/', onPost);
 function onWSSError(error) {
   console.log('WebSocket server error: ', error);
 
-  if (!mailSend) {
+  if (!mailSent) {
     mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
-    mailSend = true;
+    mailSent = true;
   }
 }
 
 function onWSSConnection(ws) {
   ws.on('error', onWSError);
   ws.on('message', onWSMessage);
-  // ws.on('close', () => {});
 }
 
 function onWSSClose(event) {

@@ -21,25 +21,16 @@ const { beforeEachCb, afterEachCb, getWsClient } = (() => {
 
     wsClient.on('error', (e) => console.log('errored! ', e));
     wsClient.on('open', () => {
-      console.log('opened...');
       done();
     });
   }
 
   function afterEachCb(done) {
-    console.log('closing...');
-
     wsClient.on('close', () => {
-      console.log('closed!');
       wsClient = null;
       done();
     });
-    // wsClient.close();
     wsClient.terminate();
-
-    // wsClient.on('message', () => {
-    // 	console.log('message...before close');
-    // });
   }
 
   function getWsClient() {
@@ -115,8 +106,6 @@ describe('App', () => {
         }
       }).to.not.throw(Error);
 
-      console.log('done???');
-      // wsc.off('message', onMessage);
       done();
     });
 
