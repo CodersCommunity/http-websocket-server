@@ -1,14 +1,18 @@
 import http from 'http';
+import https from 'https';
 import express from 'express';
 import bodyParser from 'body-parser';
 import WebSocket from 'ws';
-import config from './config';
+import config, { sslConfig } from './config';
 import mailer from './mailer';
 
 const app = express();
 app.use(bodyParser.json());
-const server = http.createServer(app);
-server.listen(config.port.http, () => console.log(`Server is listening on port ${config.port.http}`));
+const server = createServer();
+server.listen(
+    config.port.http,
+    () => console.log(`Server is listening on port ${config.port.http}, over ${config.protocol.toUpperCase()} protocol.`)
+);
 
 const HTTP_ERROR_CODES = Object.freeze({
   FORBIDDEN: 403,
@@ -39,6 +43,17 @@ app.all('*', onAll);
 
 // send new list html to users
 app.post('/', onPost);
+
+function createServer() {
+  if (config.protocol === 'https') {
+    return https.createServer({
+      key: sslConfig.key,
+      cert: sslConfig.cert,
+    }, app);
+  }
+
+  return http.createServer(app);
+}
 
 function onWSSError(error) {
   console.error('WebSocket server error: ', error);
