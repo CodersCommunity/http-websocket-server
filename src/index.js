@@ -19,6 +19,13 @@ const GROUP_REGEXPS = Object.freeze({
   main: /^$|\/$/,
   activity: /^(\/?)activity/,
 });
+const GROUP_NAMES = Object.freeze({
+  MAIN: 'main',
+  ACTIVITY: 'activity',
+});
+const ACTIONS = Object.freeze({
+  ADD_POST: 'add-post',
+});
 
 let mailSent = false;
 
@@ -34,7 +41,7 @@ app.all('*', onAll);
 app.post('/', onPost);
 
 function onWSSError(error) {
-  console.log('WebSocket server error: ', error);
+  console.error('WebSocket server error: ', error);
 
   if (!mailSent) {
     mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
@@ -126,10 +133,14 @@ function onPost(req, res) {
   res.sendStatus(200);
 
   const { action } = req.body;
-  const groupName = action === 'add-post' ? 'main' : 'activity';
+  const groupNames = [GROUP_NAMES.ACTIVITY];
+
+  if (action === ACTIONS.ADD_POST) {
+    groupNames.push(GROUP_NAMES.MAIN);
+  }
 
   for (const wsClient of wss.clients) {
-    if (wsClient._GROUP_NAME === groupName || wsClient._GROUP_NAME === 'activity') {
+    if (groupNames.includes(wsClient._GROUP_NAME)) {
       wsClient.send(JSON.stringify({ action }));
     }
   }

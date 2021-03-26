@@ -15,7 +15,7 @@
 
     "test": "mocha --require babel-register --exit --timeout 5000"
   },
-  "author": "Adrian Wieprzkowicz & JSHoliq",
+  "author": "Adrian Wieprzkowicz & ScriptyChris",
   "license": "MIT",
   "dependencies": {
     "axios": "^0.19.2",
