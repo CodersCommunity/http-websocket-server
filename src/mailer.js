@@ -8,7 +8,7 @@ export default {
     const mailOptions = {
       from: config.mailer.auth.user,
       to: config.emailTo.toString(),
-      subject: '!!! Błąd działania WebSocketu Forum Pasja Informatyki!',
+      subject: 'Błąd działania WebSocketu Forum Pasja Informatyki!',
       html: message,
     };
 

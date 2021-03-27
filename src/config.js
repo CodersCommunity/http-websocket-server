@@ -2,32 +2,7 @@ import dotenv from 'dotenv';
 import { readFileSync } from 'fs';
 dotenv.config();
 
-export const sslConfig = (() => {
-  if (process.env.PROTOCOL === 'http') {
-    return { key: '', cert: '' };
-  }
-
-  const logWarning = (name) =>
-    console.warn(
-      `\nWarning! Provided SSL ${name} path is empty. Falling back to default path.\nKeep in mind self signed SSL will be used, which is not secure.`
-    );
-  const key = getConfig('SSL_KEY_PATH');
-  const cert = getConfig('SSL_CERT_PATH');
-
-  return { key, cert };
-
-  function getConfig(name) {
-    let path = process.env[name];
-
-    if (!path) {
-      const shortName = name.split('_')[1].toLowerCase();
-      logWarning(shortName);
-      path = `ssl/develop.${shortName}`;
-    }
-
-    return readFileSync(path, 'utf8');
-  }
-})();
+export const sslConfig = getSslConfig();
 
 export default {
   token: process.env.TOKEN || 'secretKey',
@@ -51,3 +26,28 @@ export default {
   },
   emailTo: (process.env.EMAIL_TO && process.env.EMAIL_TO.split(',')) || [''],
 };
+
+function getSslConfig() {
+  const PROTOCOL = process.env.PROTOCOL;
+  const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+  const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+
+  let key = '';
+  let cert = '';
+
+  if (PROTOCOL === 'https') {
+    const isSslConfigSpecified = SSL_KEY_PATH && SSL_CERT_PATH;
+
+    let sslKeyPath = SSL_KEY_PATH;
+    let sslCertPath = SSL_CERT_PATH;
+
+    if (!isSslConfigSpecified) {
+      console.warn('SSL config not provided. Self signed certificate is used');
+      sslKeyPath = path.resolve(__dirname, '../ssl/develop.key');
+      sslCertPath = path.resolve(__dirname, '../ssl/develop.cert');
+    }
+    key = readFileSync(sslKeyPath, 'utf8');
+    cert = readFileSync(sslCertPath, 'utf8');
+  }
+  return { key, cert };
+}
