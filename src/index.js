@@ -1,83 +1,164 @@
-import http from 'http'
-import express from 'express'
-import bodyParser from 'body-parser'
-import WebSocket from 'ws'
-import axios from 'axios'
-import { minify } from 'html-minifier'
-import config from './config'
-import mailer from './mailer'
-import escape from 'escape-html'
+import http from 'http';
+import https from 'https';
+import express from 'express';
+import bodyParser from 'body-parser';
+import WebSocket from 'ws';
+import config, { sslConfig } from './config';
+import mailer from './mailer';
 
-// create http server
-const app = express()
-app.use(bodyParser.json())
-const server = http.createServer(app);
-server.listen(config.port)
-let mailSend = false
+const app = express();
+app.use(bodyParser.json());
+const server = createServer();
+server.listen(config.port.http, () =>
+  console.log(`Server is listening on port ${config.port.http}, over ${config.protocol.toUpperCase()} protocol.`)
+);
 
-// create websocket server
-const ws = new WebSocket.Server({ server })
+const HTTP_ERROR_CODES = Object.freeze({
+  FORBIDDEN: 403,
+  METHOD_NOT_ALLOWED: 405,
+  WS_CLOSE_ERROR_CODE: 4000,
+});
+const GROUP_REGEXPS = Object.freeze({
+  main: /^$|\/$/,
+  activity: /^(\/?)activity/,
+});
+const GROUP_NAMES = Object.freeze({
+  MAIN: 'main',
+  ACTIVITY: 'activity',
+});
+const ACTIONS = Object.freeze({
+  ADD_POST: 'add-post',
+});
+
+const wss = new WebSocket.Server({ server });
+wss.on('error', onWSSError);
+wss.on('connection', onWSSConnection);
+wss.on('close', onWSSClose);
 
 // check request
-app.all('*', (req, res, next) => {
-
-	// check authorization
-	if (req.headers.token !== config.token) {
-		res.sendStatus(403) // Forbidden
-		return
-	}
-
-	// check method
-	if (req.method !== 'POST') {
-		res.sendStatus(405) // Method Not Allowed
-		return
-	}
-
-	next()
-})
+app.all('*', onAll);
 
 // send new list html to users
-app.post('/', (req, res) => {
+app.post('/', onPost);
 
-	// send response to forum server
-	res.sendStatus(200)
+function createServer() {
+  if (config.protocol === 'https') {
+    return https.createServer(
+      {
+        key: sslConfig.key,
+        cert: sslConfig.cert,
+      },
+      app
+    );
+  }
 
-	axios.get(config.forumUrl).then(forumResposne => {
-		return forumResposne.data
-	}).then(html => {
+  return http.createServer(app);
+}
 
-		// send only required data
-		const startIndex = html.indexOf('<div class="qa-q-list') + 45
-		const endIndex = html.indexOf('<!-- END qa-q-list ') - 7
-		html = html.slice(startIndex, endIndex)
+let mailSent = false;
 
-		// minify html
-		html = minify(html, {
-		removeComments: true,
-		collapseWhitespace: true
-	})
+function onWSSError(error) {
+  console.error('WebSocket server error: ', error);
 
-	// get action type e.g. 'add-question'
-	const action = req.body.action
+  if (!mailSent) {
+    mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
+    mailSent = true;
+  }
+}
 
-	// check is HTML a valid question list
-	if (html.startsWith(`<div class="qa-q-list-item`)) {
-		// send new HTML to websocket clients
-		ws.clients.forEach(client => {
-			const data = JSON.stringify({ action, html })
-			client.send(data)
-		})
-	} else {
-		if (!mailSend) {
-			mailer.sendMail(`<p>Otrzymany HTML nie jest prawidłową listą pytań!</p><p>${escape( html )}</p>`)
-			mailSend = true
-		}
-	}
+function onWSSConnection(ws) {
+  ws.on('error', onWSError);
+  ws.on('message', onWSMessage);
+}
 
-	}).catch(err => {
-		console.error(err)
-		mailer.sendMail(`<p>Błąd pobrania danych z forum!</p><p>${ err }</p>`)
-	})
+function onWSSClose(event) {
+  console.log('WebSocket server closed: ', event);
+}
 
-})
+function onWSMessage(event) {
+  const parsedEvent = parseWSMessage(this, event);
 
+  if (!parsedEvent) {
+    return;
+  }
+
+  assignWSClientToGroup(this, parsedEvent.pathname);
+}
+
+function onWSError(event) {
+  console.error('ws error event: ', event);
+
+  if (!event.errno) {
+    throw event;
+  }
+}
+
+function onAll(req, res, next) {
+  // check authorization
+  if (req.headers.token !== config.token) {
+    res.sendStatus(HTTP_ERROR_CODES.FORBIDDEN);
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.sendStatus(HTTP_ERROR_CODES.METHOD_NOT_ALLOWED);
+    return;
+  }
+
+  next();
+}
+
+function parseWSMessage(ws, event) {
+  let parsedEvent = {};
+
+  try {
+    if (!event) {
+      throw Error('ws empty message event');
+    }
+
+    parsedEvent = JSON.parse(event);
+  } catch (exception) {
+    console.error('ws invalid JSON message: ', event, ' threw exception: ', exception);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Message is not valid JSON!');
+
+    return null;
+  }
+
+  if (!parsedEvent.pathname) {
+    console.error('ws empty pathname: ', parsedEvent.pathname);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Empty pathname!');
+
+    return null;
+  }
+
+  return parsedEvent;
+}
+
+function assignWSClientToGroup(ws, pathname) {
+  const pathName = pathname.replace(/\//g, '');
+  const groupName = Object.keys(GROUP_REGEXPS).find((groupName) => GROUP_REGEXPS[groupName].test(pathName));
+
+  if (!groupName) {
+    console.error('ws unexpected groupName: ', groupName, ' from pathName: ', pathName);
+    ws.close(HTTP_ERROR_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
+  }
+
+  ws._GROUP_NAME = groupName;
+}
+
+function onPost(req, res) {
+  res.sendStatus(200);
+
+  const { action } = req.body;
+  const groupNames = [GROUP_NAMES.ACTIVITY];
+
+  if (action === ACTIONS.ADD_POST) {
+    groupNames.push(GROUP_NAMES.MAIN);
+  }
+
+  for (const wsClient of wss.clients) {
+    if (groupNames.includes(wsClient._GROUP_NAME)) {
+      wsClient.send(JSON.stringify({ action }));
+    }
+  }
+}
