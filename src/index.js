@@ -30,8 +30,6 @@ const ACTIONS = Object.freeze({
   ADD_POST: 'add-post',
 });
 
-let mailSent = false;
-
 const wss = new WebSocket.Server({ server });
 wss.on('error', onWSSError);
 wss.on('connection', onWSSConnection);
@@ -56,6 +54,8 @@ function createServer() {
 
   return http.createServer(app);
 }
+
+let mailSent = false;
 
 function onWSSError(error) {
   console.error('WebSocket server error: ', error);

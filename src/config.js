@@ -5,7 +5,7 @@ dotenv.config();
 export const sslConfig = getSslConfig();
 
 export default {
-  token: process.env.TOKEN || 'secretKey',
+  token: process.env.SECRET_TOKEN || 'secretToken',
   protocol: process.env.PROTOCOL || 'http',
   host: process.env.HOST || 'localhost',
   port: {
@@ -21,10 +21,10 @@ export default {
       pass: process.env.MAILER_AUTH_PASS || '',
     },
     tls: {
-      rejectUnauthorized: process.env.MAILER_TLS_REJECT_UNAUTHORIZED === 'false' || true,
+      rejectUnauthorized: process.env.MAILER_TLS_REJECT_UNAUTHORIZED === 'true' || false,
     },
   },
-  emailTo: (process.env.EMAIL_TO && process.env.EMAIL_TO.split(',')) || [''],
+  emailTo: (process.env.EMAIL_TO && process.env.EMAIL_TO.split(',').map((email) => email.trim())) || [''],
 };
 
 function getSslConfig() {
