@@ -9,9 +9,8 @@ import mailer from './mailer';
 const app = express();
 app.use(bodyParser.json());
 const server = createServer();
-server.listen(
-    config.port.http,
-    () => console.log(`Server is listening on port ${config.port.http}, over ${config.protocol.toUpperCase()} protocol.`)
+server.listen(config.port.http, () =>
+  console.log(`Server is listening on port ${config.port.http}, over ${config.protocol.toUpperCase()} protocol.`)
 );
 
 const HTTP_ERROR_CODES = Object.freeze({
@@ -46,10 +45,13 @@ app.post('/', onPost);
 
 function createServer() {
   if (config.protocol === 'https') {
-    return https.createServer({
-      key: sslConfig.key,
-      cert: sslConfig.cert,
-    }, app);
+    return https.createServer(
+      {
+        key: sslConfig.key,
+        cert: sslConfig.cert,
+      },
+      app
+    );
   }
 
   return http.createServer(app);

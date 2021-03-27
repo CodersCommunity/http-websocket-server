@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { readFileSync } from "fs";
+import { readFileSync } from 'fs';
 dotenv.config();
 
 export const sslConfig = (() => {
@@ -7,9 +7,10 @@ export const sslConfig = (() => {
     return { key: '', cert: '' };
   }
 
-  const logWarning = (name) => console.warn(
-    `\nWarning! Provided SSL ${name} path is empty. Falling back to default path.\nKeep in mind self signed SSL will be used, which is not secure.`
-  );
+  const logWarning = (name) =>
+    console.warn(
+      `\nWarning! Provided SSL ${name} path is empty. Falling back to default path.\nKeep in mind self signed SSL will be used, which is not secure.`
+    );
   const key = getConfig('SSL_KEY_PATH');
   const cert = getConfig('SSL_CERT_PATH');
 
@@ -18,7 +19,7 @@ export const sslConfig = (() => {
   function getConfig(name) {
     let path = process.env[name];
 
-    if (!path){
+    if (!path) {
       const shortName = name.split('_')[1].toLowerCase();
       logWarning(shortName);
       path = `ssl/develop.${shortName}`;
