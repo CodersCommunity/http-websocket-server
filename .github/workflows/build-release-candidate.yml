@@ -1,6 +1,5 @@
 
-name: Build docker image
-
+name: Build Development Docker Image
 on:
   push:
     branches: [ development ]
