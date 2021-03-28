@@ -43,5 +43,5 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: ghcr.io/http-websocket-server:latest
+          tags: ghcr.io/CodersCommunity/http-websocket-server:latest
 
