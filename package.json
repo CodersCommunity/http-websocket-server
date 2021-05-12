@@ -28,7 +28,7 @@
     "express": "^4.17.1",
     "html-minifier": "^3.5.3",
     "jsdom": "^16.3.0",
-    "nodemailer": "^4.0.1",
+    "nodemailer": "^6.4.16",
     "rimraf": "^3.0.2",
     "ws": "^7.3.1"
   },
