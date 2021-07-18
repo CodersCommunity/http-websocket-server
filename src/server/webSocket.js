@@ -1,8 +1,11 @@
 import WebSocket from 'ws';
+import fetch from 'node-fetch';
 import mailer from '../mailer';
 import * as VARS from '../vars';
+import config from '../config';
 
 const { HTTP_STATUS_CODES, GROUP_REGEXPS } = VARS;
+
 
 class WebSocketServer {
   constructor(httpServer) {
@@ -27,7 +30,9 @@ class WebSocketServer {
       ws.close(HTTP_STATUS_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
     }
 
-    ws._GROUP_NAME = groupName;
+    ws._CLIENT_META_DATA = {
+      groupName /*, cookie*/,
+    };
   }
 
   parseWSMessage(ws, event) {
@@ -56,11 +61,28 @@ class WebSocketServer {
     return parsedEvent;
   }
 
+  getSessionCookie(reqHeaders) {
+    const cookie = reqHeaders && reqHeaders.cookie;
+
+    if (cookie) {
+      const sessionCookie = cookie.split(' ').find((c) => c.includes('qa_session'));
+
+      return sessionCookie ? sessionCookie.split('=')[1] : null;
+    }
+
+    return null;
+  }
+
   socketClientsNotifier(action, groupNames) {
     for (const wsClient of this.wss.clients) {
-      console.log('(socketClientsNotifier) groupNames:', groupNames, ' /wsClient._GROUP_NAME:', wsClient._GROUP_NAME);
+      console.log(
+        '(socketClientsNotifier) groupNames:',
+        groupNames,
+        ' /wsClient._CLIENT_META_DATA:',
+        wsClient._CLIENT_META_DATA
+      );
 
-      if (groupNames.includes(wsClient._GROUP_NAME)) {
+      if (groupNames.includes(wsClient._CLIENT_META_DATA)) {
         wsClient.send(JSON.stringify({ action }));
       }
     }
@@ -75,8 +97,21 @@ class WebSocketServer {
     }
   }
 
-  onWSSConnection(ws) {
+  onWSSConnection(ws, req) {
     console.log('WebSocket connected');
+    
+    const sessionCookie =this.getSessionCookie(req.headers)
+    console.log('sessionCookie:', sessionCookie);
+    
+    fetch(`${config.protocol}://${config.host}:${config.port.q2a}/user-id`/*'http://localhost:4080/user-id'*/, {
+      headers: {
+        cookie: `qa_session=${sessionCookie}`,
+        token: config.token,
+      }
+    })
+      .then(res => res.text())
+      .then(userId => console.log('userId:', Number(userId)))
+      .catch(console.error)
 
     ws.on('error', this.onWSError.bind(this));
     ws.on('message', (event) => this.onWSMessage(event, ws));

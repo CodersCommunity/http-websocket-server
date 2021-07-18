@@ -11,6 +11,7 @@ export default {
   port: {
     http: Number(process.env.HTTP_PORT) || 3000,
     ws: Number(process.env.WS_PORT) || 3000,
+    q2a: Number(process.env.Q2A_PORT) || 80,
   },
   mailer: {
     host: process.env.MAILER_HOST || '',
