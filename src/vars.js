@@ -16,5 +16,6 @@ export const GROUP_NAMES = Object.freeze({
 });
 
 export const ACTIONS = Object.freeze({
-  ADD_POST: 'add-post',
+  ADD_POST: 'q_post',
+  COMMENT_POST: 'c_post',
 });
