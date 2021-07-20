@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import config from './config';
 
 export default {
-  sendMail: function (message) {
+  sendMail(message) {
     const transporter = nodemailer.createTransport(config.mailer);
 
     const mailOptions = {
