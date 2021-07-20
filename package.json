@@ -5,9 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "prettier": "node_modules/.bin/prettier --write src/ test/",
-    "dev": "nodemon src/index.js --exec babel-node",
+    "eslint": "eslint src/",
+    "dev": "nodemon --exec \"npm run prettier && npm run eslint && babel-node src/index.js\"",
     "debug": "node --inspect-brk dist/index.js",
-    "prebuild": "npm run prettier && rimraf dist",
+    "prebuild": "npm run prettier && npm run eslint && rimraf dist",
     "build": "babel src -d dist",
     "serve": "node dist/index.js",
     "pretest": "npm run build",
@@ -25,13 +26,15 @@
     "body-parser": "^1.19.0",
     "dotenv": "^8.2.0",
     "escape-html": "^1.0.3",
+    "eslint": "^7.31.0",
+    "eslint-config-node": "^4.1.0",
     "express": "^4.17.1",
     "html-minifier": "^3.5.3",
     "jsdom": "^16.3.0",
     "node-fetch": "^2.6.1",
     "nodemailer": "^4.0.1",
     "rimraf": "^3.0.2",
-    "ws": "^7.3.1"
+    "ws": "^7.5.3"
   },
   "devDependencies": {
     "babel-cli": "^6.24.1",
