@@ -1,41 +1,68 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import mailer from '../mailer';
+// eslint-disable-next-line import/no-namespace
 import * as VARS from '../vars';
 import config from '../config';
 
 const { HTTP_STATUS_CODES, GROUP_REGEXPS } = VARS;
 
-
-class WebSocketServer {
+class WebSocketServerCore {
   constructor(httpServer) {
     this.mailSent = false;
-
     this.wss = new WebSocket.Server({ server: httpServer.server });
-    this.wss.on('open', (e) => console.log('????open', e));
-    this.wss.on('opening', (e) => console.log('????opening', e));
-    this.wss.on('error', this.onWSSError.bind(this));
-    this.wss.on('connection', this.onWSSConnection.bind(this));
-    this.wss.on('close', this.onWSSClose.bind(this));
-
-    httpServer.attachSocketClientsNotifier(this.socketClientsNotifier.bind(this));
   }
 
-  assignWSClientToGroup(pathname, ws) {
-    const pathName = pathname.replace(/\//g, '');
-    const groupName = Object.keys(GROUP_REGEXPS).find((groupName) => GROUP_REGEXPS[groupName].test(pathName));
-
-    if (!groupName) {
-      console.error('ws unexpected groupName: ', groupName, ' from pathName: ', pathName);
-      ws.close(HTTP_STATUS_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
+  initWebSocketEvents(externalEventListenerList) {
+    if (!Array.isArray(externalEventListenerList) || externalEventListenerList.length === 0) {
+      throw TypeError('eventList argument must be non empty array!');
     }
 
-    ws._CLIENT_META_DATA = {
-      groupName /*, cookie*/,
-    };
+    const coreEventListenerList = [
+      {
+        eventName: 'error',
+        listener: this.onWSSError.bind(this),
+      },
+      {
+        eventName: 'close',
+        listener: WebSocketServerCore.onWSSClose,
+      },
+    ];
+
+    [...coreEventListenerList, ...externalEventListenerList].forEach(({ eventName, listener }) => {
+      if (!eventName || !listener) {
+        throw ReferenceError(`
+          event listener must contain: eventName and listener params!
+          Received eventName: "${eventName}", listener: "${listener}"
+        `);
+      }
+
+      this.wss.on(eventName, listener);
+    });
   }
 
-  parseWSMessage(ws, event) {
+  static onWSSClose(event) {
+    console.log('WebSocket server closed: ', event);
+  }
+
+  onWSSError(error) {
+    console.error('WebSocket server error: ', error);
+
+    if (!this.mailSent) {
+      mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
+      this.mailSent = true;
+    }
+  }
+
+  static onWSError(event) {
+    console.error('WebSocket error event: ', event);
+
+    if (!event.errno) {
+      throw event;
+    }
+  }
+
+  static parseWSMessage(event, ws) {
     let parsedEvent = {};
 
     try {
@@ -60,17 +87,62 @@ class WebSocketServer {
 
     return parsedEvent;
   }
+}
 
-  getSessionCookie(reqHeaders) {
+class WebSocketServer extends WebSocketServerCore {
+  constructor(httpServer) {
+    super(httpServer);
+    this.USER_ID_URL = `${config.protocol}://${config.host}:${config.port.q2a}/user-id`;
+    this.initWebSocketEvents([
+      {
+        eventName: 'connection',
+        listener: this.onWSSConnection.bind(this),
+      },
+    ]);
+    httpServer.attachSocketClientsNotifier(this.socketClientsNotifier.bind(this));
+  }
+
+  static assignWSClientToGroup(pathname, ws) {
+    if (!ws._CLIENT_META_DATA) {
+      throw ReferenceError(
+        'ws._CLIENT_META_DATA object does not exist! It should be declared inside WSS connection event listener.'
+      );
+    } else if (ws._CLIENT_META_DATA.groupName) {
+      throw Error(`ws._CLIENT_META_DATA.groupName with "${ws._CLIENT_META_DATA.groupName}" already exists!`);
+    }
+
+    const pathName = pathname.replace(/\//g, '');
+    const groupName = Object.keys(GROUP_REGEXPS).find((groupName) => GROUP_REGEXPS[groupName].test(pathName));
+
+    if (!groupName) {
+      console.error('ws unexpected groupName: ', groupName, ' from pathName: ', pathName);
+      ws.close(HTTP_STATUS_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
+    }
+
+    ws._CLIENT_META_DATA.groupName = groupName;
+  }
+
+  static getSessionCookie(reqHeaders) {
     const cookie = reqHeaders && reqHeaders.cookie;
 
     if (cookie) {
-      const sessionCookie = cookie.split(' ').find((c) => c.includes('qa_session'));
-
-      return sessionCookie ? sessionCookie.split('=')[1] : null;
+      const sessionCookie = cookie.split(' ').find((keyValuePair) => keyValuePair.split('=')[0] === 'qa_session');
+      return sessionCookie || null;
     }
 
     return null;
+  }
+
+  getUserId(sessionCookie) {
+    return fetch(this.USER_ID_URL, {
+      headers: {
+        cookie: sessionCookie,
+        token: config.token,
+      },
+    })
+      .then((res) => res.text())
+      .then((userId) => Number(userId))
+      .catch(console.error);
   }
 
   socketClientsNotifier(action, groupNames) {
@@ -78,7 +150,7 @@ class WebSocketServer {
       console.log(
         '(socketClientsNotifier) groupNames:',
         groupNames,
-        ' /wsClient._CLIENT_META_DATA:',
+        '\n/wsClient._CLIENT_META_DATA:',
         wsClient._CLIENT_META_DATA
       );
 
@@ -88,56 +160,32 @@ class WebSocketServer {
     }
   }
 
-  onWSSError(error) {
-    console.error('WebSocket server error: ', error);
-
-    if (!this.mailSent) {
-      mailer.sendMail(`<p>Wystąpił błąd na serwerze WebSocket!<br><output>${JSON.stringify(error)}</output></p>`);
-      this.mailSent = true;
+  async onWSSConnection(ws, req) {
+    if (ws._CLIENT_META_DATA) {
+      throw ReferenceError(
+        'ws._CLIENT_META_DATA object should not exist at that moment! WebSocket client duplication might happened.'
+      );
+    } else {
+      ws._CLIENT_META_DATA = {};
     }
+
+    ws._CLIENT_META_DATA.sessionCookie = WebSocketServer.getSessionCookie(req.headers);
+
+    ws.on('error', WebSocketServerCore.onWSError);
+    ws.on('message', (event) => WebSocketServer.onWSMessage(event, ws));
+
+    ws._CLIENT_META_DATA.userId = await this.getUserId(ws._CLIENT_META_DATA.sessionCookie);
   }
 
-  onWSSConnection(ws, req) {
-    console.log('WebSocket connected');
-    
-    const sessionCookie =this.getSessionCookie(req.headers)
-    console.log('sessionCookie:', sessionCookie);
-    
-    fetch(`${config.protocol}://${config.host}:${config.port.q2a}/user-id`/*'http://localhost:4080/user-id'*/, {
-      headers: {
-        cookie: `qa_session=${sessionCookie}`,
-        token: config.token,
-      }
-    })
-      .then(res => res.text())
-      .then(userId => console.log('userId:', Number(userId)))
-      .catch(console.error)
-
-    ws.on('error', this.onWSError.bind(this));
-    ws.on('message', (event) => this.onWSMessage(event, ws));
-  }
-
-  onWSSClose(event) {
-    console.log('WebSocket server closed: ', event);
-  }
-
-  onWSMessage(event, ws) {
-    const parsedEvent = this.parseWSMessage(this, event);
+  static onWSMessage(event, ws) {
+    const parsedEvent = WebSocketServerCore.parseWSMessage(event, ws);
     console.log('parsedEvent:', parsedEvent);
 
     if (!parsedEvent) {
       return;
     }
 
-    this.assignWSClientToGroup(parsedEvent.pathname, ws);
-  }
-
-  onWSError(event) {
-    console.error('WebSocket error event: ', event);
-
-    if (!event.errno) {
-      throw event;
-    }
+    WebSocketServer.assignWSClientToGroup(parsedEvent.pathname, ws);
   }
 }
 

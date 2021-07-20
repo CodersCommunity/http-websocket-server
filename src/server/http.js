@@ -5,21 +5,31 @@ import bodyParser from 'body-parser';
 import config, { sslConfig } from '../config';
 import { HTTP_STATUS_CODES, GROUP_NAMES, ACTIONS } from '../vars';
 
-class HttpServer {
+class HttpServerCore {
   constructor() {
     this.server = null;
     this.app = null;
     this.socketClientsNotifier = () => console.error('Method not attached!');
-
-    this.initConnectionWithQ2A();
-    this.initServerForWebSocket();
   }
 
-  initConnectionWithQ2A() {
+  initConnectionWithQ2A(middlewareList) {
     this.app = express();
     this.app.use(bodyParser.json());
-    this.app.all('*', this.onAll.bind(this));
-    this.app.post('/', this.onPost.bind(this));
+
+    if (!Array.isArray(middlewareList) || middlewareList.length === 0) {
+      throw TypeError('middlewareList argument must be non empty array!');
+    }
+
+    middlewareList.forEach(({ method, path, listener }) => {
+      if (!method || !path || !listener) {
+        throw ReferenceError(`
+          middleware must contain: method, path and listener params!
+          Received method: "${method}", path: "${path}", listener: "${listener}"
+        `);
+      }
+
+      this.app[method](path, listener);
+    });
   }
 
   initServerForWebSocket() {
@@ -43,7 +53,30 @@ class HttpServer {
     return http.createServer(this.app);
   }
 
-  onAll(req, res, next) {
+  attachSocketClientsNotifier(fn) {
+    this.socketClientsNotifier = fn;
+  }
+}
+
+class HttpServer extends HttpServerCore {
+  constructor() {
+    super();
+    this.initConnectionWithQ2A([
+      {
+        method: 'all',
+        path: '*',
+        listener: HttpServer.onAll,
+      },
+      {
+        method: 'post',
+        path: '/',
+        listener: this.onPost.bind(this),
+      },
+    ]);
+    this.initServerForWebSocket();
+  }
+
+  static onAll(req, res, next) {
     if (req.headers.token !== config.token) {
       res.sendStatus(HTTP_STATUS_CODES.FORBIDDEN);
       return;
@@ -65,17 +98,13 @@ class HttpServer {
     const { action } = req.body;
     const groupNames = [GROUP_NAMES.ACTIVITY];
 
-    console.log('(onPost) action:', action, ' /groupNames:', groupNames, ' /ACTIONS:', ACTIONS);
+    console.log('(onPost) action:', action, '\n/groupNames:', groupNames, '\n/ACTIONS:', ACTIONS);
 
     if (action === ACTIONS.ADD_POST) {
       groupNames.push(GROUP_NAMES.MAIN);
     }
 
     this.socketClientsNotifier(action, groupNames);
-  }
-
-  attachSocketClientsNotifier(fn) {
-    this.socketClientsNotifier = fn;
   }
 }
 
