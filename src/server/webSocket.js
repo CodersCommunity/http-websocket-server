@@ -92,7 +92,37 @@ class WebSocketServerCore {
 class WebSocketServer extends WebSocketServerCore {
   constructor(httpServer) {
     super(httpServer);
+
     this.USER_ID_URL = `${config.protocol}://${config.host}:${config.port.q2a}/user-id`;
+    this.SUBPAGE_VISITORS_AMOUNT_MAP = (() => {
+      // create pure object, without prototype
+      const visitorsMap = Object.create(null);
+
+      return {
+        incrementIfExists(subPageName) {
+          if (!(subPageName in visitorsMap)) {
+            visitorsMap[subPageName] = 0;
+          }
+
+          visitorsMap[subPageName]++;
+        },
+        decrementAndEventuallyRemove(subPageName) {
+          if (!(subPageName in visitorsMap) || visitorsMap[subPageName] === 0) {
+            throw Error(`
+              visitorsMap does not have property subPageName or it's value is 0!
+              visitorsMap entries: "${Object.entries(visitorsMap)}", subPageName: "${subPageName}"
+            `);
+          }
+
+          visitorsMap[subPageName]--;
+
+          if (visitorsMap[subPageName] === 0) {
+            delete visitorsMap[subPageName];
+          }
+        },
+      };
+    })();
+
     this.initWebSocketEvents([
       {
         eventName: 'connection',
@@ -102,24 +132,27 @@ class WebSocketServer extends WebSocketServerCore {
     httpServer.attachSocketClientsNotifier(this.socketClientsNotifier.bind(this));
   }
 
-  static assignWSClientToGroup(pathname, ws) {
+  assignWSClientToGroup(pathName, ws) {
     if (!ws._CLIENT_META_DATA) {
       throw ReferenceError(
         'ws._CLIENT_META_DATA object does not exist! It should be declared inside WSS connection event listener.'
       );
-    } else if (ws._CLIENT_META_DATA.groupName) {
+    } else if (ws._CLIENT_META_DATA.groupName || ws._CLIENT_META_DATA.subPage) {
       throw Error(`ws._CLIENT_META_DATA.groupName with "${ws._CLIENT_META_DATA.groupName}" already exists!`);
     }
 
-    const pathName = pathname.replace(/\//g, '');
     const groupName = Object.keys(GROUP_REGEXPS).find((groupName) => GROUP_REGEXPS[groupName].test(pathName));
 
     if (!groupName) {
       console.error('ws unexpected groupName: ', groupName, ' from pathName: ', pathName);
       ws.close(HTTP_STATUS_CODES.WS_CLOSE_ERROR_CODE, 'Unexpected pathname!');
+
+      return;
     }
 
     ws._CLIENT_META_DATA.groupName = groupName;
+    ws._CLIENT_META_DATA.subPage = pathName;
+    this.SUBPAGE_VISITORS_AMOUNT_MAP.incrementIfExists(pathName);
   }
 
   static getSessionCookie(reqHeaders) {
@@ -154,7 +187,7 @@ class WebSocketServer extends WebSocketServerCore {
         wsClient._CLIENT_META_DATA
       );
 
-      if (groupNames.includes(wsClient._CLIENT_META_DATA)) {
+      if (groupNames.includes(wsClient._CLIENT_META_DATA.groupName)) {
         wsClient.send(JSON.stringify({ action }));
       }
     }
@@ -172,20 +205,27 @@ class WebSocketServer extends WebSocketServerCore {
     ws._CLIENT_META_DATA.sessionCookie = WebSocketServer.getSessionCookie(req.headers);
 
     ws.on('error', WebSocketServerCore.onWSError);
-    ws.on('message', (event) => WebSocketServer.onWSMessage(event, ws));
+    ws.on('message', (event) => this.onWSMessage(event, ws));
+    ws.on('close', (event) => this.onWSClose(event, ws));
 
     ws._CLIENT_META_DATA.userId = await this.getUserId(ws._CLIENT_META_DATA.sessionCookie);
   }
 
-  static onWSMessage(event, ws) {
+  onWSMessage(event, ws) {
     const parsedEvent = WebSocketServerCore.parseWSMessage(event, ws);
-    console.log('parsedEvent:', parsedEvent);
+    console.log('(onWSMessage) parsedEvent:', parsedEvent);
 
     if (!parsedEvent) {
       return;
     }
 
-    WebSocketServer.assignWSClientToGroup(parsedEvent.pathname, ws);
+    this.assignWSClientToGroup(parsedEvent.pathname, ws);
+  }
+
+  onWSClose(event, ws) {
+    console.log('(onWSClose) event:', event, ' /ws._CLIENT_META_DATA:', ws._CLIENT_META_DATA);
+
+    this.SUBPAGE_VISITORS_AMOUNT_MAP.decrementAndEventuallyRemove(ws._CLIENT_META_DATA.subPage);
   }
 }
 

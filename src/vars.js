@@ -6,13 +6,15 @@ export const HTTP_STATUS_CODES = Object.freeze({
 });
 
 export const GROUP_REGEXPS = Object.freeze({
-  main: /^$|\/$/,
-  activity: /^(\/?)activity/,
+  main: /^\/?$/,
+  activity: /^\/?activity\/?$/,
+  topic: /^\/?\d+\/.*\/?$/,
 });
 
 export const GROUP_NAMES = Object.freeze({
   MAIN: 'main',
   ACTIVITY: 'activity',
+  TOPIC: 'topic',
 });
 
 export const ACTIONS = Object.freeze({
