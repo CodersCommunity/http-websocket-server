@@ -3,7 +3,7 @@ import https from 'https';
 import express from 'express';
 import bodyParser from 'body-parser';
 import config, { sslConfig } from '../config';
-import { HTTP_STATUS_CODES, GROUP_NAMES, ACTIONS } from '../vars';
+import { HTTP_STATUS_CODES } from '../vars';
 
 class HttpServerCore {
   constructor() {
@@ -91,20 +91,10 @@ class HttpServer extends HttpServerCore {
   }
 
   onPost(req, res) {
-    console.log('POST...', req.body);
+    console.log('(onPost) rq.body:', req.body);
 
     res.sendStatus(200);
-
-    const { action } = req.body;
-    const groupNames = [GROUP_NAMES.ACTIVITY];
-
-    console.log('(onPost) action:', action, '\n/groupNames:', groupNames, '\n/ACTIONS:', ACTIONS);
-
-    if (action === ACTIONS.ADD_POST) {
-      groupNames.push(GROUP_NAMES.MAIN);
-    }
-
-    this.socketClientsNotifier(action, groupNames);
+    this.socketClientsNotifier(req.body.action);
   }
 }
 

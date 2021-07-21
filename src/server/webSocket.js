@@ -1,11 +1,8 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import mailer from '../mailer';
-// eslint-disable-next-line import/no-namespace
-import * as VARS from '../vars';
 import config from '../config';
-
-const { HTTP_STATUS_CODES, GROUP_REGEXPS } = VARS;
+import { HTTP_STATUS_CODES, ACTIONS, GROUP_NAMES, GROUP_REGEXPS } from '../vars';
 
 class WebSocketServerCore {
   constructor(httpServer) {
@@ -178,7 +175,15 @@ class WebSocketServer extends WebSocketServerCore {
       .catch(console.error);
   }
 
-  socketClientsNotifier(action, groupNames) {
+  socketClientsNotifier(action) {
+    const groupNames = [GROUP_NAMES.ACTIVITY];
+
+    if (action === ACTIONS.ADD_POST) {
+      groupNames.push(GROUP_NAMES.MAIN);
+    }
+
+    console.log('(socketClientsNotifier) \n/groupNames:', groupNames, '\n/ACTIONS:', ACTIONS, '\n/action:', action);
+
     for (const wsClient of this.wss.clients) {
       console.log(
         '(socketClientsNotifier) groupNames:',
