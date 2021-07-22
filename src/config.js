@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
 dotenv.config();
 
 export const sslConfig = getSslConfig();
@@ -11,6 +13,7 @@ export default {
   port: {
     http: Number(process.env.HTTP_PORT) || 3000,
     ws: Number(process.env.WS_PORT) || 3000,
+    q2a: Number(process.env.Q2A_PORT) || 80,
   },
   mailer: {
     host: process.env.MAILER_HOST || '',
@@ -43,8 +46,8 @@ function getSslConfig() {
 
     if (!isSslConfigSpecified) {
       console.warn('SSL config not provided. Self signed certificate is used');
-      sslKeyPath = path.resolve(__dirname, '../ssl/develop.key');
-      sslCertPath = path.resolve(__dirname, '../ssl/develop.cert');
+      sslKeyPath = resolve(__dirname, '../ssl/develop.key');
+      sslCertPath = resolve(__dirname, '../ssl/develop.cert');
     }
     key = readFileSync(sslKeyPath, 'utf8');
     cert = readFileSync(sslCertPath, 'utf8');
