@@ -93,7 +93,7 @@ class HttpServer extends HttpServerCore {
   onPost(req, res) {
     console.log('(onPost) rq.body:', req.body);
 
-    res.sendStatus(200);
+    res.sendStatus(HTTP_STATUS_CODES.OK);
     this.socketClientsNotifier(req.body.action);
   }
 }

@@ -1,5 +1,5 @@
 export const HTTP_STATUS_CODES = Object.freeze({
-  OK: 20,
+  OK: 200,
   FORBIDDEN: 403,
   METHOD_NOT_ALLOWED: 405,
   WS_CLOSE_ERROR_CODE: 4000,

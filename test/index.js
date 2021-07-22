@@ -3,6 +3,7 @@ import chaiHttp from 'chai-http';
 import config from '../src/config';
 import WebSocket from 'ws';
 import { minify } from 'html-minifier';
+import { HTTP_STATUS_CODES } from '../src/vars';
 import '../dist/index.js';
 
 chai.use(chaiHttp);
@@ -21,6 +22,7 @@ const { beforeEachCb, afterEachCb, getWsClient } = (() => {
 
     wsClient.on('error', (e) => console.log('errored! ', e));
     wsClient.on('open', () => {
+      wsClient.send(JSON.stringify({ pathname: '/' }));
       done();
     });
   }
@@ -49,7 +51,7 @@ describe('HTTP Server', () => {
       .post('/')
       .set({ token })
       .end((err, res) => {
-        expect(res).to.have.status(200);
+        expect(res).to.have.status(HTTP_STATUS_CODES.OK);
         done();
       });
   });
