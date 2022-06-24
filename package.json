@@ -27,7 +27,7 @@
     "escape-html": "^1.0.3",
     "express": "^4.17.1",
     "html-minifier": "^3.5.3",
-    "jsdom": "^16.3.0",
+    "jsdom": "^16.5.0",
     "nodemailer": "^4.0.1",
     "rimraf": "^3.0.2",
     "ws": "^7.3.1"
